@@ -790,23 +790,28 @@ export class Neo4jStorageProvider implements StorageProvider {
               changedBy: extendedRelation.changedBy || null,
             };
 
-            // Create relation query
+            // Create or update relation query using MERGE to prevent duplicates
             const createQuery = `
               MATCH (from:Entity {name: $fromName})
               MATCH (to:Entity {name: $toName})
-              CREATE (from)-[r:RELATES_TO {
-                id: $id,
-                relationType: $relationType,
-                strength: $strength,
-                confidence: $confidence,
-                metadata: $metadata,
-                version: $version,
-                createdAt: $createdAt,
-                updatedAt: $updatedAt,
-                validFrom: $validFrom,
-                validTo: $validTo,
-                changedBy: $changedBy
-              }]->(to)
+              MERGE (from)-[r:RELATES_TO {relationType: $relationType}]->(to)
+              ON CREATE SET
+                r.id = $id,
+                r.strength = $strength,
+                r.confidence = $confidence,
+                r.metadata = $metadata,
+                r.version = $version,
+                r.createdAt = $createdAt,
+                r.updatedAt = $updatedAt,
+                r.validFrom = $validFrom,
+                r.validTo = $validTo,
+                r.changedBy = $changedBy
+              ON MATCH SET
+                r.strength = $strength,
+                r.confidence = $confidence,
+                r.metadata = $metadata,
+                r.version = r.version + 1,
+                r.updatedAt = $updatedAt
               RETURN r, from, to
             `;
 
